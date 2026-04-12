@@ -1,53 +1,71 @@
-# Kwiaciarnia Demo Telegram Support Bot
+# Outreach Automation Toolkit
 
-Telegram customer support bot for a Polish flower shop using Gemini, a simple RAG pipeline, and Google Sheets logging.
+This repository contains two small Python automation tools:
 
-## Features
+- `enricher.py` for B2B lead enrichment
+- `outreach.py` for personalized cold email generation and optional Gmail sending
 
-- Telegram bot built with `python-telegram-bot`
-- Gemini-generated answers in Polish
-- Simple RAG over `knowledge_base.txt`
-- Conversation memory for the last 5 messages per user
-- Google Sheets logging for every interaction
-- Escalation flow for low-confidence or human-manager requests
-- Typing indicator and production-focused error handling
+## Included Tools
 
-## Project Structure
+### 1. Lead Enrichment Pipeline
 
-- `bot.py` - Telegram bot entry point and conversation logic
-- `rag.py` - knowledge base loading, chunking, embeddings, similarity search
-- `sheets.py` - Google Sheets logging helper
-- `knowledge_base.txt` - Polish flower shop FAQ and operational details
-- `.env` - environment variables
-- `requirements.txt` - Python dependencies
+Reads a CSV of companies, finds likely websites, scrapes homepage data, and uses Gemini to infer business details.
 
-## Architecture
+Files:
 
-```text
-User on Telegram
-      |
-      v
-python-telegram-bot
-      |
-      v
-   bot.py
-  /   |   \
- v    v    v
-RAG  Gemini Sheets
- |      |      |
-rag.py API   sheets.py
- |
-knowledge_base.txt
+- `enricher.py`
+- `utils.py`
+- `sample_input.csv`
+
+Run:
+
+```bash
+python enricher.py --input sample_input.csv --output enriched_output.csv
 ```
 
-## How It Works
+Output columns:
 
-1. User sends a message on Telegram.
-2. `bot.py` stores recent conversation memory for that user.
-3. `rag.py` loads the local knowledge base, splits it into chunks, embeds them with Gemini, and retrieves the most relevant chunks for the new question.
-4. `bot.py` sends the retrieved context plus recent chat history to Gemini.
-5. If confidence is too low or the user asks for a human/manager, the bot replies with `Przekazuję do managera ✓` and marks the interaction as escalated.
-6. `sheets.py` logs timestamp, user ID, question, answer, and escalation status to Google Sheets.
+- `company`
+- `website`
+- `email`
+- `linkedin_url`
+- `employee_count_estimate`
+- `tech_stack`
+- `summary`
+
+### 2. Email Outreach Agent
+
+Reads companies from CSV, scrapes their website homepage, uses Gemini to write a personalized cold email in English, and can send it via Gmail SMTP.
+
+Files:
+
+- `outreach.py`
+- `email_generator.py`
+- `gmail_sender.py`
+- `sample_companies.csv`
+- `email_template_context.txt`
+
+Default behavior is safe dry-run mode. Emails are only sent when `--send` is passed.
+
+Run in dry-run mode:
+
+```bash
+python outreach.py --input sample_companies.csv --output outreach_log.csv
+```
+
+Run with sending enabled:
+
+```bash
+python outreach.py --input sample_companies.csv --output outreach_log.csv --send
+```
+
+Log columns:
+
+- `company`
+- `email_sent_to`
+- `subject`
+- `status`
+- `timestamp`
 
 ## Setup
 
@@ -57,55 +75,39 @@ knowledge_base.txt
 pip install -r requirements.txt
 ```
 
-### 2. Configure environment variables
+### 2. Set Gemini API key
 
-Fill in `.env`:
-
-```env
-TELEGRAM_TOKEN=your_telegram_bot_token
-GEMINI_API_KEY=your_gemini_api_key
-GOOGLE_SHEETS_ID=your_google_sheet_id
-MANAGER_CHAT_ID=optional_telegram_chat_id_for_alerts
-GEMINI_MODEL=gemini-1.5-flash
-```
-
-### 3. Configure Google Sheets credentials
-
-Create a Google service account, download its JSON credentials file, and set:
+Windows:
 
 ```bash
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+set GEMINI_API_KEY=your_api_key
 ```
 
-Share your Google Sheet with the service account email.
-
-### 4. Run the bot
+macOS or Linux:
 
 ```bash
-python bot.py
+export GEMINI_API_KEY=your_api_key
 ```
 
-## Logging Schema
+### 3. Set Gmail SMTP credentials for outreach sending
 
-The Google Sheet contains these columns:
+Windows:
 
-- `timestamp`
-- `user_id`
-- `question`
-- `answer`
-- `escalated`
+```bash
+set GMAIL_SENDER=your_email@gmail.com
+set GMAIL_APP_PASSWORD=your_gmail_app_password
+```
 
-## Production Notes
+macOS or Linux:
 
-- The bot validates required environment variables at startup.
-- All major external calls are wrapped with error handling.
-- Logging failures do not crash the bot.
-- Escalations can optionally notify a manager chat via Telegram.
-- For deployment, use a process manager or container runtime and provide secure secrets management.
+```bash
+export GMAIL_SENDER=your_email@gmail.com
+export GMAIL_APP_PASSWORD=your_gmail_app_password
+```
 
-## Possible Improvements
+## Notes
 
-1. Cache embeddings to disk to avoid recomputing on each restart.
-2. Add webhook deployment instead of polling.
-3. Add structured confidence scoring from the LLM in addition to embedding similarity.
-4. Add tests and monitoring.
+- Output files act as checkpoints because processed companies are skipped on reruns.
+- Missing data is written as empty strings where possible.
+- Gemini failures do not crash the full run.
+- Search and scraping depend on third-party site structure and may require maintenance over time.
