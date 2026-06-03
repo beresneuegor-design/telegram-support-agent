@@ -1,113 +1,99 @@
-# Outreach Automation Toolkit
+# Telegram Support Agent
 
-This repository contains two small Python automation tools:
+AI-powered Telegram bot for automated customer support with RAG (Retrieval-Augmented Generation), Google Gemini embeddings, and Google Sheets logging.
 
-- `enricher.py` for B2B lead enrichment
-- `outreach.py` for personalized cold email generation and optional Gmail sending
-
-## Included Tools
-
-### 1. Lead Enrichment Pipeline
-
-Reads a CSV of companies, finds likely websites, scrapes homepage data, and uses Gemini to infer business details.
-
-Files:
-
-- `enricher.py`
-- `utils.py`
-- `sample_input.csv`
-
-Run:
-
-```bash
-python enricher.py --input sample_input.csv --output enriched_output.csv
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Telegram                              │
+│                    User                                  │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│              python-telegram-bot                         │
+│           (Message Handler / Router)                     │
+│                                                          │
+│    ┌──────────────┐    ┌─────────────────────────┐      │
+│    │  start /     │    │   handle_message()       │      │
+│    │  help cmds   │    │   (text / intent)        │      │
+│    └──────────────┘    └───────────┬─────────────┘      │
+└────────────────────────────────────┼────────────────────┘
+                                     │
+          ┌──────────────────────────┼──────────────┐
+          │                          │              │
+          ▼                          ▼              │
+┌──────────────────┐     ┌────────────────────┐     │
+│   SimpleRAG      │     │  Gemini LLM        │     │
+│  (Embeddings /   │◄────│  (Response Gen)    │     │
+│   Cosine Search) │     └─────────┬──────────┘     │
+│                  │               │                │
+│ knowledge_base   │               │                │
+│ .txt (chunks)    │               │                │
+└──────────────────┘               │                │
+                                   │                │
+                                   ▼                ▼
+                         ┌────────────────────────────┐
+                         │    Google Sheets Logger    │
+                         │  (Interaction log + stats) │
+                         └────────────────────────────┘
 ```
 
-Output columns:
+## Features
 
-- `company`
-- `website`
-- `email`
-- `linkedin_url`
-- `employee_count_estimate`
-- `tech_stack`
-- `summary`
+- **RAG-powered responses** — semantic search over a knowledge base using Google Gemini embeddings and cosine similarity
+- **Human escalation** — detects when a user asks for a human operator and forwards the conversation to a manager
+- **Conversation memory** — last 10 messages per user maintained in-memory for context
+- **Google Sheets logging** — every interaction (question, answer, escalation) logged to a spreadsheet
+- **Manager alerts** — automatic Telegram notifications to a manager chat when escalation is triggered
+- **Confidence threshold** — falls back to human when semantic confidence drops below 55%
+- **Polish language** — built for a Polish flower shop ("Kwiaciarnia Demo")
 
-### 2. Email Outreach Agent
+## Quick Start
 
-Reads companies from CSV, scrapes their website homepage, uses Gemini to write a personalized cold email in English, and can send it via Gmail SMTP.
-
-Files:
-
-- `outreach.py`
-- `email_generator.py`
-- `gmail_sender.py`
-- `sample_companies.csv`
-- `email_template_context.txt`
-
-Default behavior is safe dry-run mode. Emails are only sent when `--send` is passed.
-
-Run in dry-run mode:
+### 1. Clone and install
 
 ```bash
-python outreach.py --input sample_companies.csv --output outreach_log.csv
-```
+git clone https://github.com/beresneuegor-design/telegram-support-agent.git
+cd telegram-support-agent
 
-Run with sending enabled:
-
-```bash
-python outreach.py --input sample_companies.csv --output outreach_log.csv --send
-```
-
-Log columns:
-
-- `company`
-- `email_sent_to`
-- `subject`
-- `status`
-- `timestamp`
-
-## Setup
-
-### 1. Install dependencies
-
-```bash
+python -m venv .venv
+source .venv/bin/activate   # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt
 ```
 
-### 2. Set Gemini API key
-
-Windows:
+### 2. Set environment variables
 
 ```bash
-set GEMINI_API_KEY=your_api_key
+cp .env.example .env
+# Edit .env with your keys (see .env.example for format)
 ```
 
-macOS or Linux:
+### 3. Run the bot
 
 ```bash
-export GEMINI_API_KEY=your_api_key
+python bot.py
 ```
 
-### 3. Set Gmail SMTP credentials for outreach sending
+## Tech Stack
 
-Windows:
+| Component            | Technology                        |
+|----------------------|-----------------------------------|
+| Bot framework        | python-telegram-bot 21.x          |
+| LLM / Embeddings     | Google Gemini (gemini-1.5-flash)  |
+| RAG search           | Cosine similarity on embeddings  |
+| Logging              | Google Sheets (gspread)           |
+| Language             | Python 3.10+                      |
 
-```bash
-set GMAIL_SENDER=your_email@gmail.com
-set GMAIL_APP_PASSWORD=your_gmail_app_password
-```
+## Environment Variables
 
-macOS or Linux:
+| Variable              | Description                        |
+|-----------------------|------------------------------------|
+| `TELEGRAM_TOKEN`      | Bot token from @BotFather          |
+| `GEMINI_API_KEY`      | Google Gemini API key              |
+| `GOOGLE_SHEETS_ID`    | Google Sheets spreadsheet ID       |
+| `MANAGER_CHAT_ID`     | Telegram chat ID for alerts        |
+| `GEMINI_MODEL`        | Gemini model name (optional)       |
 
-```bash
-export GMAIL_SENDER=your_email@gmail.com
-export GMAIL_APP_PASSWORD=your_gmail_app_password
-```
+## License
 
-## Notes
-
-- Output files act as checkpoints because processed companies are skipped on reruns.
-- Missing data is written as empty strings where possible.
-- Gemini failures do not crash the full run.
-- Search and scraping depend on third-party site structure and may require maintenance over time.
+MIT
